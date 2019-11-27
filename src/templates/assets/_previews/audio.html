@@ -1,0 +1,11 @@
+<audio controls class="fullwidth">
+    <source src="{{ assetUrl }}" type="{{ asset.mimeType }}">
+    {{ 'Your browser does not support the audio element.'|t('app') }}
+</audio>
+
+{% js %}
+var $instance = Craft.PreviewFileModal.openInstance;
+$instance.on('hide', function () {
+    $instance.$container[0].getElementsByTagName('audio')[0].pause();
+});
+{% endjs %}

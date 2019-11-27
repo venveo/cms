@@ -1,0 +1,12 @@
+<video class="fullwidth" controls autoplay>
+    <source src="{{ assetUrl }}" type="{{ asset.mimeType }}">
+    {{ 'Your browser does not support the audio element.'|t('app') }}
+</video>
+
+{% js %}
+var $instance = Craft.PreviewFileModal.openInstance;
+
+$instance.on('hide', function () {
+    $instance.$container[0].getElementsByTagName('video')[0].pause();
+});
+{% endjs %}

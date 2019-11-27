@@ -8,10 +8,12 @@
 namespace craft\services;
 
 use Craft;
+use craft\assetpreviews\AudioPreview;
 use craft\assetpreviews\HtmlPreview;
 use craft\assetpreviews\ImagePreview;
 use craft\assetpreviews\NoPreview;
 use craft\assetpreviews\PdfPreview;
+use craft\assetpreviews\VideoPreview;
 use craft\base\AssetPreview;
 use craft\base\AssetPreviewInterface;
 use craft\base\Volume;
@@ -1061,19 +1063,24 @@ class Assets extends Component
             return $preview;
         }
 
-        // These are our default preview handlers if one is not supplied
-        switch($asset->kind) {
-            case Asset::KIND_IMAGE:
-                return new ImagePreview($asset);
-            case Asset::KIND_PDF:
-                return new PdfPreview($asset);
-            case Asset::KIND_HTML:
-            case Asset::KIND_JSON:
-            case Asset::KIND_JAVASCRIPT:
-                return new HtmlPreview($asset);
-            default:
-                return new NoPreview($asset);
+        $previewMap = [
+            Asset::KIND_IMAGE => [ImagePreview::class],
+            Asset::KIND_PDF => [PdfPreview::class],
+            Asset::KIND_HTML => [HtmlPreview::class],
+            Asset::KIND_JSON => [HtmlPreview::class],
+            Asset::KIND_JAVASCRIPT => [HtmlPreview::class],
+            Asset::KIND_AUDIO => [AudioPreview::class, ['audio/mpeg', 'audio/ogg', 'audio/wav']],
+            Asset::KIND_VIDEO => [VideoPreview::class, ['video/mp4', 'video/webm', 'video/ogg']],
+        ];
+
+        if (isset($previewMap[$asset->kind])) {
+            $preview = $previewMap[$asset->kind];
+            if (!isset($preview[1]) || in_array($asset->mimeType, $preview[1])) {
+                return new $preview[0]($asset);
+            }
         }
+
+        return new NoPreview($asset);
     }
 
     // Private Methods
