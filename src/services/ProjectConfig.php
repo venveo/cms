@@ -21,6 +21,7 @@ use craft\helpers\FileHelper;
 use craft\helpers\Json;
 use craft\helpers\Path as PathHelper;
 use craft\helpers\ProjectConfig as ProjectConfigHelper;
+use craft\helpers\StringHelper;
 use Symfony\Component\Yaml\Yaml;
 use yii\base\Application;
 use yii\base\Component;
@@ -56,6 +57,9 @@ class ProjectConfig extends Component
 
     // Key to use for schema version storage.
     const CONFIG_SCHEMA_VERSION_KEY = 'system.schemaVersion';
+
+    // Key to use for signaling ordered-to-associative array conversion
+    const CONFIG_ASSOC_KEY = '__assoc__';
 
     // TODO move this to UID validator class
     // TODO update StringHelper::isUUID() to use that
@@ -627,7 +631,6 @@ class ProjectConfig extends Component
 
         $previousConfig = $this->_getStoredConfig();
         $value = ProjectConfigHelper::cleanupConfig($previousConfig);
-        ksort($value);
         $this->_storeYamlHistory($value);
 
         $info = Craft::$app->getInfo();
@@ -1427,6 +1430,7 @@ class ProjectConfig extends Component
             'globalSets' => $this->_getGlobalSetData(),
             'plugins' => $this->_getPluginData(),
             'imageTransforms' => $this->_getTransformData(),
+            'graphql' => $this->_getGqlData(),
         ];
 
         return $data;
@@ -2091,7 +2095,6 @@ class ProjectConfig extends Component
         return $pluginData;
     }
 
-
     /**
      * Return asset transform config array
      *
@@ -2124,6 +2127,31 @@ class ProjectConfig extends Component
         }
 
         return $transformRows;
+    }
+
+    /**
+     * Return GraphQL config array
+     *
+     * @return array
+     */
+    private function _getGqlData(): array
+    {
+        $scopeRows = (new Query())
+            ->select([
+                'name',
+                'scope',
+                'uid',
+            ])
+            ->from([Table::GQLSCHEMAS])
+            ->indexBy('uid')
+            ->all();
+
+        foreach ($scopeRows as &$row) {
+            unset($row['uid']);
+            $row['scope'] = Json::decodeIfJson($row['scope']);
+        }
+
+        return ['scopes' => $scopeRows];
     }
 
     /**

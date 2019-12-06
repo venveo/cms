@@ -66,6 +66,14 @@ class Entry extends Element
     /**
      * @inheritdoc
      */
+    public static function lowerDisplayName(): string
+    {
+        return Craft::t('app', 'entry');
+    }
+
+    /**
+     * @inheritdoc
+     */
     public static function pluralDisplayName(): string
     {
         return Craft::t('app', 'Entries');
@@ -74,9 +82,25 @@ class Entry extends Element
     /**
      * @inheritdoc
      */
+    public static function pluralLowerDisplayName(): string
+    {
+        return Craft::t('app', 'entries');
+    }
+
+    /**
+     * @inheritdoc
+     */
     public static function refHandle()
     {
         return 'entry';
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public static function trackChanges(): bool
+    {
+        return true;
     }
 
     /**
@@ -843,7 +867,7 @@ class Entry extends Element
      * ```
      *
      * @return EntryType
-     * @throws InvalidConfigException if [[typeId]] is missing or invalid
+     * @throws InvalidConfigException if the section has no entry types
      */
     public function getType(): EntryType
     {
@@ -853,8 +877,12 @@ class Entry extends Element
 
         $sectionEntryTypes = ArrayHelper::index($this->getSection()->getEntryTypes(), 'id');
 
-        if (!isset($sectionEntryTypes[$this->typeId])) {
-            throw new InvalidConfigException('Invalid entry type ID: ' . $this->typeId);
+        if ($this->typeId === null || !isset($sectionEntryTypes[$this->typeId])) {
+            Craft::warning("Entry {$this->id} has an invalid entry type ID: {$this->typeId}");
+            if (empty($sectionEntryTypes)) {
+                throw new InvalidConfigException("Section {$this->sectionId} has no entry types");
+            }
+            return reset($sectionEntryTypes);
         }
 
         return $sectionEntryTypes[$this->typeId];
@@ -885,7 +913,8 @@ class Entry extends Element
         }
 
         if (($this->_author = Craft::$app->getUsers()->getUserById($this->authorId)) === null) {
-            throw new InvalidConfigException('Invalid author ID: ' . $this->authorId);
+            // The author is probably soft-deleted. Just no author is set
+            return null;
         }
 
         return $this->_author;
@@ -1222,6 +1251,10 @@ EOD;
             $record->authorId = (int)$this->authorId ?: null;
             $record->postDate = $this->postDate;
             $record->expiryDate = $this->expiryDate;
+
+            // Capture the dirty attributes from the record
+            $dirtyAttributes = array_keys($record->getDirtyAttributes());
+
             $record->save(false);
 
             if ($section->type == Section::TYPE_STRUCTURE) {
@@ -1237,6 +1270,8 @@ EOD;
                 // Update the entry's descendants, who may be using this entry's URI in their own URIs
                 Craft::$app->getElements()->updateDescendantSlugsAndUris($this, true, true);
             }
+
+            $this->setDirtyAttributes($dirtyAttributes);
         }
 
         parent::afterSave($isNew);

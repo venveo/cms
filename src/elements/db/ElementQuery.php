@@ -996,7 +996,7 @@ class ElementQuery extends Query implements ElementQueryInterface
      *
      * @param string $value The property value
      * @return static self reference
-     * @deprecated in 3.0. Use [[site]] or [[siteId]] instead.
+     * @deprecated in 3.0.0. Use [[site]] or [[siteId]] instead.
      */
     public function locale(string $value)
     {
@@ -1042,7 +1042,7 @@ class ElementQuery extends Query implements ElementQueryInterface
      *
      * @param mixed $value The property value (defaults to true)
      * @return static self reference
-     * @deprecated in 3.0. Use [[enabledForSite]] instead.
+     * @deprecated in 3.0.0. Use [[enabledForSite]] instead.
      */
     public function localeEnabled($value = true)
     {
@@ -1523,7 +1523,7 @@ class ElementQuery extends Query implements ElementQueryInterface
         // Avoid indexing by an ambiguous column
         if (
             $this->from === null &&
-            is_string($this->indexBy)  &&
+            is_string($this->indexBy) &&
             in_array($this->indexBy, ['id', 'dateCreated', 'dateUpdated', 'uid'], true)
         ) {
             $this->from = ['elements' => Table::ELEMENTS];
@@ -1612,6 +1612,18 @@ class ElementQuery extends Query implements ElementQueryInterface
     {
         $this->_result = $elements;
         $this->_resultCriteria = $this->getCriteria();
+    }
+
+    /**
+     * Clears the cached result.
+     *
+     * @see getCachedResult()
+     * @see setCachedResult()
+     * @since 3.4.0
+     */
+    public function clearCachedResult()
+    {
+        $this->_result = $this->_resultCriteria = null;
     }
 
     /**
@@ -1783,6 +1795,8 @@ class ElementQuery extends Query implements ElementQueryInterface
                 'creatorId' => ArrayHelper::remove($row, 'draftCreatorId'),
                 'draftName' => ArrayHelper::remove($row, 'draftName'),
                 'draftNotes' => ArrayHelper::remove($row, 'draftNotes'),
+                'trackChanges' => (bool)ArrayHelper::remove($row, 'draftTrackChanges'),
+                'dateLastMerged' => ArrayHelper::remove($row, 'draftDateLastMerged'),
             ]);
         }
 
@@ -2421,6 +2435,12 @@ class ElementQuery extends Query implements ElementQueryInterface
                     'drafts.name as draftName',
                     'drafts.notes as draftNotes',
                 ]);
+
+            $schemaVersion = Craft::$app->getInstalledSchemaVersion();
+            if (version_compare($schemaVersion, '3.4.3', '>=')) {
+                $this->query->addSelect(['drafts.trackChanges as draftTrackChanges']);
+                $this->query->addSelect(['drafts.dateLastMerged as draftDateLastMerged']);
+            }
 
             if ($this->draftId) {
                 $this->subQuery->andWhere(['elements.draftId' => $this->draftId]);

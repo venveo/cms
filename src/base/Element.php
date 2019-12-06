@@ -121,6 +121,13 @@ abstract class Element extends Component implements ElementInterface
     const SCENARIO_ESSENTIALS = 'essentials';
     const SCENARIO_LIVE = 'live';
 
+    // Attribute/Field Statuses
+    // -------------------------------------------------------------------------
+
+    const ATTR_STATUS_MODIFIED = 'modified';
+    const ATTR_STATUS_OUTDATED = 'outdated';
+    const ATTR_STATUS_CONFLICTED = 'conflicted';
+
     // Events
     // -------------------------------------------------------------------------
 
@@ -318,6 +325,22 @@ abstract class Element extends Component implements ElementInterface
     /**
      * @inheritdoc
      */
+    public static function displayName(): string
+    {
+        return Craft::t('app', 'Element');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public static function lowerDisplayName(): string
+    {
+        return StringHelper::toLowerCase(static::displayName());
+    }
+
+    /**
+     * @inheritdoc
+     */
     public static function pluralDisplayName(): string
     {
         return Craft::t('app', 'Elements');
@@ -326,9 +349,25 @@ abstract class Element extends Component implements ElementInterface
     /**
      * @inheritdoc
      */
+    public static function pluralLowerDisplayName(): string
+    {
+        return StringHelper::toLowerCase(static::pluralDisplayName());
+    }
+
+    /**
+     * @inheritdoc
+     */
     public static function refHandle()
     {
         return null;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public static function trackChanges(): bool
+    {
+        return false;
     }
 
     /**
@@ -884,13 +923,28 @@ abstract class Element extends Component implements ElementInterface
     private $_normalizedFieldValues;
 
     /**
-     * @var bool Whether all field values should be considered dirty.
+     * @var bool Whether all attributes and field values should be considered dirty.
+     * @see getDirtyAttributes()
+     * @see getDirtyFields()
      * @see isFieldDirty()
      */
-    private $_allFieldsDirty = false;
+    private $_allDirty = false;
+
+    /**
+     * @var string[]|null Record of dirty attributes.
+     * @see getDirtyAttributes()
+     */
+    private $_dirtyAttributes;
+
+    /**
+     * @var string|null The initial title value, if there was one.
+     * @see getDirtyAttributes()
+     */
+    private $_savedTitle;
 
     /**
      * @var array Record of dirty fields.
+     * @see getDirtyFields()
      * @see isFieldDirty()
      */
     private $_dirtyFields;
@@ -926,6 +980,11 @@ abstract class Element extends Component implements ElementInterface
     private $_eagerLoadedElements;
 
     /**
+     * @var array|null
+     */
+    private $_eagerLoadedElementCounts;
+
+    /**
      * @var ElementInterface|false
      * @see getCurrentRevision()
      */
@@ -940,7 +999,7 @@ abstract class Element extends Component implements ElementInterface
     public function __clone()
     {
         // Mark all fields as dirty
-        $this->_allFieldsDirty = true;
+        $this->_allDirty = true;
         parent::__clone();
     }
 
@@ -1052,6 +1111,10 @@ abstract class Element extends Component implements ElementInterface
 
         if ($this->siteId === null && Craft::$app->getIsInstalled()) {
             $this->siteId = Craft::$app->getSites()->getPrimarySite()->id;
+        }
+
+        if (static::hasTitles()) {
+            $this->_savedTitle = $this->title;
         }
 
         $this->_initialized = true;
@@ -1560,7 +1623,7 @@ abstract class Element extends Component implements ElementInterface
             $previewTargets = [
                 [
                     'label' => Craft::t('app', 'Primary {type} page', [
-                        'type' => StringHelper::toLowerCase(static::displayName()),
+                        'type' => static::lowerDisplayName(),
                     ]),
                     'url' => $url,
                 ],
@@ -1915,6 +1978,58 @@ abstract class Element extends Component implements ElementInterface
     /**
      * @inheritdoc
      */
+    function getAttributeStatus(string $attribute)
+    {
+        if (!$this->getIsDraft()) {
+            return null;
+        }
+
+        /** @var DraftBehavior $behavior */
+        $behavior = $this->getBehavior('draft');
+        $modified = $behavior->isAttributeModified($attribute);
+        $outdated = $behavior->isAttributeOutdated($attribute);
+        if ($modified && !$outdated) {
+            return [self::ATTR_STATUS_MODIFIED, Craft::t('app', 'Modified in draft')];
+        }
+        if ($outdated && !$modified) {
+            return [self::ATTR_STATUS_OUTDATED, Craft::t('app', 'Modified in source {type}', [
+                'type' => static::lowerDisplayName(),
+            ])];
+        }
+        if ($outdated && $modified) {
+            return [self::ATTR_STATUS_CONFLICTED, Craft::t('app', 'Modified in draft and source {type}', [
+                'type' => static::lowerDisplayName(),
+            ])];
+        }
+        return null;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getDirtyAttributes(): array
+    {
+        $dirtyAttributes = $this->_dirtyAttributes ?? [];
+        if (static::hasTitles() && $this->title !== $this->_savedTitle) {
+            $dirtyAttributes[] = 'title';
+        }
+        return $dirtyAttributes;
+    }
+
+    /**
+     * Sets the list of dirty attribute names.
+     *
+     * @param string[] $names
+     * @see getDirtyAttributes()
+     */
+    public function setDirtyAttributes(array $names)
+    {
+        $this->_dirtyAttributes = $names;
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function getFieldValues(array $fieldHandles = null): array
     {
         $values = [];
@@ -1986,9 +2101,38 @@ abstract class Element extends Component implements ElementInterface
     /**
      * @inheritdoc
      */
+    function getFieldStatus(string $fieldHandle)
+    {
+        if (!$this->getIsDraft()) {
+            return null;
+        }
+
+        /** @var DraftBehavior $behavior */
+        $behavior = $this->getBehavior('draft');
+        $modified = $behavior->isFieldModified($fieldHandle);
+        $outdated = $behavior->isFieldOutdated($fieldHandle);
+        if ($modified && !$outdated) {
+            return [self::ATTR_STATUS_MODIFIED, Craft::t('app', 'Modified in draft')];
+        }
+        if ($outdated && !$modified) {
+            return [self::ATTR_STATUS_OUTDATED, Craft::t('app', 'Modified in source {type}', [
+                'type' => static::lowerDisplayName(),
+            ])];
+        }
+        if ($outdated && $modified) {
+            return [self::ATTR_STATUS_CONFLICTED, Craft::t('app', 'Modified in draft and source {type}', [
+                'type' => static::lowerDisplayName(),
+            ])];
+        }
+        return null;
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function isFieldDirty(string $fieldHandle): bool
     {
-        return $this->_allFieldsDirty || isset($this->_dirtyFields[$fieldHandle]);
+        return $this->_allDirty || isset($this->_dirtyFields[$fieldHandle]);
     }
 
     /**
@@ -1996,7 +2140,7 @@ abstract class Element extends Component implements ElementInterface
      */
     public function getDirtyFields(): array
     {
-        if ($this->_allFieldsDirty) {
+        if ($this->_allDirty) {
             return ArrayHelper::getColumn($this->fieldLayoutFields(), 'handle');
         }
         if ($this->_dirtyFields) {
@@ -2008,10 +2152,14 @@ abstract class Element extends Component implements ElementInterface
     /**
      * @inheritdoc
      */
-    public function clearDirtyFields()
+    public function markAsClean()
     {
-        $this->_allFieldsDirty = false;
+        $this->_allDirty = false;
+        $this->_dirtyAttributes = null;
         $this->_dirtyFields = null;
+        if (static::hasTitles()) {
+            $this->_savedTitle = $this->title;
+        }
     }
 
     /**
@@ -2081,10 +2229,7 @@ abstract class Element extends Component implements ElementInterface
     }
 
     /**
-     * Returns whether elements have been eager-loaded with a given handle.
-     *
-     * @param string $handle The handle of the eager-loaded elements
-     * @return bool Whether elements have been eager-loaded with the given handle
+     * @inheritdoc
      */
     public function hasEagerLoadedElements(string $handle): bool
     {
@@ -2092,10 +2237,7 @@ abstract class Element extends Component implements ElementInterface
     }
 
     /**
-     * Returns the eager-loaded elements for a given handle.
-     *
-     * @param string $handle The handle of the eager-loaded elements
-     * @return ElementInterface[]|null The eager-loaded elements, or null
+     * @inheritdoc
      */
     public function getEagerLoadedElements(string $handle)
     {
@@ -2110,14 +2252,27 @@ abstract class Element extends Component implements ElementInterface
     }
 
     /**
-     * Sets some eager-loaded elements on a given handle.
-     *
-     * @param string $handle The handle to load the elements with in the future
-     * @param ElementInterface[] $elements The eager-loaded elements
+     * @inheritdoc
      */
     public function setEagerLoadedElements(string $handle, array $elements)
     {
         $this->_eagerLoadedElements[$handle] = $elements;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getEagerLoadedElementCount(string $handle): int
+    {
+        return $this->_eagerLoadedElementCounts[$handle] ?? 0;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function setEagerLoadedElementCount(string $handle, int $count)
+    {
+        $this->_eagerLoadedElementCounts[$handle] = $count;
     }
 
     /**

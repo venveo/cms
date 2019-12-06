@@ -25,6 +25,14 @@ interface ElementInterface extends ComponentInterface
     // =========================================================================
 
     /**
+     * Returns the lowercase version of [[displayName()]].
+     *
+     * @return string
+     * @since 3.3.17
+     */
+    public static function lowerDisplayName(): string;
+
+    /**
      * Returns the plural version of [[displayName()]].
      *
      * @return string
@@ -33,11 +41,30 @@ interface ElementInterface extends ComponentInterface
     public static function pluralDisplayName(): string;
 
     /**
+     * Returns the plural, lowercase version of [[displayName()]].
+     *
+     * @return string
+     * @since 3.3.17
+     */
+    public static function pluralLowerDisplayName(): string;
+
+    /**
      * Returns the handle that should be used to refer to this element type from reference tags.
      *
      * @return string|null The reference handle, or null if the element type doesn’t support reference tags
      */
     public static function refHandle();
+
+    /**
+     * Returns whether Craft should keep track of attribute and custom field changes made to this element type,
+     * including when the last time they were changed, and who was logged-in at the time.
+     *
+     * @return bool Whether to track changes made to elements of this type.
+     * @see getDirtyAttributes()
+     * @see getDirtyFields()
+     * @since 3.4.0
+     */
+    public static function trackChanges(): bool;
 
     /**
      * Returns whether elements of this type will be storing any data in the `content` table (titles or custom fields).
@@ -756,6 +783,23 @@ interface ElementInterface extends ComponentInterface
     public function offsetExists($offset);
 
     /**
+     * Returns the status of a given attribute.
+     *
+     * @param string $attribute
+     * @return array|null
+     * @since 3.4.0
+     */
+    public function getAttributeStatus(string $attribute);
+
+    /**
+     * Returns a list of attribute names that have changed since the element was first loaded.
+     *
+     * @return string[]
+     * @since 3.4.0
+     */
+    public function getDirtyAttributes(): array;
+
+    /**
      * Returns the element’s normalized custom field values, indexed by their handles.
      *
      * @param string[]|null $fieldHandles The list of field handles whose values
@@ -799,6 +843,15 @@ interface ElementInterface extends ComponentInterface
     public function setFieldValue(string $fieldHandle, $value);
 
     /**
+     * Returns the status of a given field.
+     *
+     * @param string $fieldHandle
+     * @return array|null
+     * @since 3.4.0
+     */
+    public function getFieldStatus(string $fieldHandle);
+
+    /**
      * Returns whether a custom field value has changed since the element was first loaded.
      *
      * @param string $fieldHandle
@@ -816,11 +869,11 @@ interface ElementInterface extends ComponentInterface
     public function getDirtyFields(): array;
 
     /**
-     * Resets the record of dirty fields.
+     * Resets the record of dirty attributes and fields.
      *
      * @since 3.4.0
      */
-    public function clearDirtyFields();
+    public function markAsClean();
 
     /**
      * Sets the element’s custom field values, when the values have come from post data.
@@ -863,6 +916,48 @@ interface ElementInterface extends ComponentInterface
      * @return string
      */
     public function getFieldContext(): string;
+
+    /**
+     * Returns whether elements have been eager-loaded with a given handle.
+     *
+     * @param string $handle The handle of the eager-loaded elements
+     * @return bool Whether elements have been eager-loaded with the given handle
+     */
+    public function hasEagerLoadedElements(string $handle): bool;
+
+    /**
+     * Returns the eager-loaded elements for a given handle.
+     *
+     * @param string $handle The handle of the eager-loaded elements
+     * @return ElementInterface[]|null The eager-loaded elements, or null if they hadn't been eager-loaded
+     */
+    public function getEagerLoadedElements(string $handle);
+
+    /**
+     * Sets some eager-loaded elements on a given handle.
+     *
+     * @param string $handle The handle to load the elements with in the future
+     * @param ElementInterface[] $elements The eager-loaded elements
+     */
+    public function setEagerLoadedElements(string $handle, array $elements);
+
+    /**
+     * Returns the count of eager-loaded elements for a given handle.
+     *
+     * @param string $handle The handle of the eager-loaded elements
+     * @return int The eager-loaded element count
+     * @since 3.4.0
+     */
+    public function getEagerLoadedElementCount(string $handle): int;
+
+    /**
+     * Sets the count of eager-loaded elements for a given handle.
+     *
+     * @param string $handle The handle to load the elements with in the future
+     * @param int $count The eager-loaded element count
+     * @since 3.4.0
+     */
+    public function setEagerLoadedElementCount(string $handle, int $count);
 
     /**
      * Returns whether the element’s content is "fresh" (unsaved and without validation errors).

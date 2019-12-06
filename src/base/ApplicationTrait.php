@@ -32,6 +32,7 @@ use craft\services\Categories;
 use craft\services\Elements;
 use craft\services\Fields;
 use craft\services\Globals;
+use craft\services\Gql;
 use craft\services\Matrix;
 use craft\services\ProjectConfig;
 use craft\services\Sections;
@@ -520,7 +521,7 @@ trait ApplicationTrait
      * Returns whether the system is currently live.
      *
      * @return bool
-     * @deprecated in 3.1. Use [[getIsLive()]] instead.
+     * @deprecated in 3.1.0. Use [[getIsLive()]] instead.
      */
     public function getIsSystemOn(): bool
     {
@@ -585,6 +586,7 @@ trait ApplicationTrait
         try {
             $row = (new Query())
                 ->from([Table::INFO])
+                ->where(['id' => 1])
                 ->one();
         } catch (DbException $e) {
             if ($throwException) {
@@ -681,18 +683,18 @@ trait ApplicationTrait
             return false;
         }
 
-        $attributes = Db::prepareValuesForDb($info);
-
-        // TODO: Remove this after the next breakpoint
-        unset($attributes['build'], $attributes['releaseDate'], $attributes['track']);
+        $attributes = [
+            'version' => $info->version,
+            'schemaVersion' => $info->schemaVersion,
+            'maintenance' => $info->maintenance,
+            'config' => Db::prepareValueForDb($info->config),
+            'configMap' => Db::prepareValueForDb($info->configMap),
+            'fieldVersion' => $info->fieldVersion,
+        ];
 
         // TODO: Remove this after the next breakpoint
         if (version_compare($info['version'], '3.1', '<')) {
             unset($attributes['config'], $attributes['configMap']);
-        }
-
-        if (array_key_exists('id', $attributes) && $attributes['id'] === null) {
-            unset($attributes['id']);
         }
 
         if (
@@ -705,29 +707,18 @@ trait ApplicationTrait
             $attributes['config'] = 'base64:' . base64_encode($attributes['config']);
         }
 
-        if ($this->getIsInstalled()) {
-            // TODO: Remove this after the next breakpoint
-            if (version_compare($info['version'], '3.0', '<')) {
-                unset($attributes['fieldVersion']);
-            }
-
-            $this->getDb()->createCommand()
-                ->update(Table::INFO, $attributes)
-                ->execute();
-        } else {
-            $this->getDb()->createCommand()
-                ->insert(Table::INFO, $attributes)
-                ->execute();
-
-            $this->setIsInstalled();
-
-            $row = (new Query())
-                ->from([Table::INFO])
-                ->one();
-
-            // Reload from DB with the new ID and modified dates.
-            $info = new Info($row);
+        // TODO: Remove this after the next breakpoint
+        if (version_compare($info['version'], '3.0', '<')) {
+            unset($attributes['fieldVersion']);
         }
+
+        $this->getDb()->createCommand()
+            ->upsert(Table::INFO, [
+                'id' => 1,
+            ], $attributes)
+            ->execute();
+
+        $this->setIsInstalled();
 
         // Use this as the new cached Info
         $this->_info = $info;
@@ -971,7 +962,7 @@ trait ApplicationTrait
      * Returns the entry revisions service.
      *
      * @return \craft\services\EntryRevisions The entry revisions service
-     * @deprecated in 3.2.
+     * @deprecated in 3.2.0.
      */
     public function getEntryRevisions()
     {
@@ -1598,5 +1589,12 @@ trait ApplicationTrait
             ->onUpdate(Sections::CONFIG_SECTIONS_KEY . '.{uid}.' . Sections::CONFIG_ENTRYTYPES_KEY . '.{uid}', [$sectionsService, 'handleChangedEntryType'])
             ->onRemove(Sections::CONFIG_SECTIONS_KEY . '.{uid}.' . Sections::CONFIG_ENTRYTYPES_KEY . '.{uid}', [$sectionsService, 'handleDeletedEntryType']);
         Event::on(Fields::class, Fields::EVENT_AFTER_DELETE_FIELD, [$sectionsService, 'pruneDeletedField']);
+
+        // GraphQL Scopes
+        $gqlService = $this->getGql();
+        $projectConfigService
+            ->onAdd(Gql::CONFIG_GQL_SCHEMAS_KEY . '.{uid}', [$gqlService, 'handleChangedSchema'])
+            ->onUpdate(Gql::CONFIG_GQL_SCHEMAS_KEY . '.{uid}', [$gqlService, 'handleChangedSchema'])
+            ->onRemove(Gql::CONFIG_GQL_SCHEMAS_KEY . '.{uid}', [$gqlService, 'handleDeletedSchema']);
     }
 }
