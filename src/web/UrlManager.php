@@ -95,7 +95,7 @@ class UrlManager extends \yii\web\UrlManager
     public function __construct(array $config = [])
     {
         $config['showScriptName'] = !Craft::$app->getConfig()->getGeneral()->omitScriptNameInUrls;
-        $config['rules'] = $this->_getRules();
+        $config['rules'] = $this->getRules();
 
         parent::__construct($config);
     }
@@ -111,7 +111,7 @@ class UrlManager extends \yii\web\UrlManager
             return false;
         }
 
-        if (($route = $this->_getRequestRoute($request)) === false) {
+        if (($route = $this->getRequestRoute($request)) === false) {
             return false;
         }
 
@@ -229,7 +229,7 @@ class UrlManager extends \yii\web\UrlManager
             return false;
         }
 
-        $this->_getMatchedElementRoute($request);
+        $this->getMatchedElementRoute($request);
         return $this->matchedElement;
     }
 
@@ -299,7 +299,7 @@ class UrlManager extends \yii\web\UrlManager
      *
      * @return array|null The rules, or null if it's a console request
      */
-    protected function _getRules()
+    protected function getRules()
     {
         $request = Craft::$app->getRequest();
 
@@ -343,30 +343,30 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return mixed
      */
-    protected function _getRequestRoute(Request $request)
+    protected function getRequestRoute(Request $request)
     {
         // Is there a token in the URL?
-        if (($route = $this->_getTokenRoute($request)) !== false) {
+        if (($route = $this->getTokenRoute($request)) !== false) {
             return $route;
         }
 
         // Is this an element request?
-        if (($route = $this->_getMatchedElementRoute($request)) !== false) {
+        if (($route = $this->getMatchedElementRoute($request)) !== false) {
             return $route;
         }
 
         // Do we have a URL route that matches?
-        if (($route = $this->_getMatchedUrlRoute($request)) !== false) {
+        if (($route = $this->getMatchedUrlRoute($request)) !== false) {
             return $route;
         }
 
         // Is this a "well-known" request?
-        if (($route = $this->_getMatchedDiscoverableUrlRoute($request)) !== false) {
+        if (($route = $this->getMatchedDiscoverableUrlRoute($request)) !== false) {
             return $route;
         }
 
         // Does it look like they're trying to access a public template path?
-        return $this->_getTemplateRoute($request);
+        return $this->getTemplateRoute($request);
     }
 
     /**
@@ -375,7 +375,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return mixed
      */
-    protected function _getMatchedElementRoute(Request $request)
+    protected function getMatchedElementRoute(Request $request)
     {
         if ($this->matchedElementRoute !== null) {
             return $this->matchedElementRoute;
@@ -418,7 +418,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return mixed
      */
-    protected function _getMatchedUrlRoute(Request $request)
+    protected function getMatchedUrlRoute(Request $request)
     {
         // Code adapted from \yii\web\UrlManager::parseRequest()
         /** @var $rule YiiUrlRule */
@@ -451,7 +451,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return mixed
      */
-    protected function _getMatchedDiscoverableUrlRoute(Request $request)
+    protected function getMatchedDiscoverableUrlRoute(Request $request)
     {
         $redirectUri = $request->getPathInfo() === '.well-known/change-password'
             ? Craft::$app->getConfig()->getGeneral()->getSetPasswordRequestPath(Craft::$app->getSites()->getCurrentSite()->handle)
@@ -484,7 +484,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return bool
      */
-    protected function _isPublicTemplatePath(Request $request): bool
+    protected function isPublicTemplatePath(Request $request): bool
     {
         if ($request->getIsConsoleRequest() || $request->getIsCpRequest()) {
             $trigger = '_';
@@ -512,13 +512,13 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return array|bool
      */
-    protected function _getTemplateRoute(Request $request)
+    protected function getTemplateRoute(Request $request)
     {
         if ($request->getIsSiteRequest() && Craft::$app->getConfig()->getGeneral()->headlessMode) {
             return false;
         }
 
-        $matches = $this->_isPublicTemplatePath($request);
+        $matches = $this->isPublicTemplatePath($request);
         $path = $request->getPathInfo();
 
         if (YII_DEBUG) {
@@ -542,7 +542,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return array|false
      */
-    protected function _getTokenRoute(Request $request)
+    protected function getTokenRoute(Request $request)
     {
         if (!$this->checkToken) {
             return false;
