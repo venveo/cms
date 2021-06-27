@@ -75,17 +75,17 @@ class UrlManager extends \yii\web\UrlManager
     /**
      * @var array Params that should be included in the
      */
-    private $_routeParams = [];
+    protected $routeParams = [];
 
     /**
      * @var
      */
-    private $_matchedElement;
+    protected $matchedElement;
 
     /**
      * @var
      */
-    private $_matchedElementRoute;
+    protected $matchedElementRoute;
 
     /**
      * Constructor.
@@ -121,7 +121,7 @@ class UrlManager extends \yii\web\UrlManager
         }
 
         // Merge in any additional route params
-        $route[1] = $this->_routeParams = ArrayHelper::merge($route[1], $this->_routeParams);
+        $route[1] = $this->routeParams = ArrayHelper::merge($route[1], $this->routeParams);
 
         return $route;
     }
@@ -174,7 +174,7 @@ class UrlManager extends \yii\web\UrlManager
      */
     public function getRouteParams()
     {
-        return $this->_routeParams;
+        return $this->routeParams;
     }
 
     /**
@@ -186,9 +186,9 @@ class UrlManager extends \yii\web\UrlManager
     public function setRouteParams(array $params, bool $merge = true)
     {
         if ($merge) {
-            $this->_routeParams = ArrayHelper::merge($this->_routeParams, $params);
+            $this->routeParams = ArrayHelper::merge($this->routeParams, $params);
         } else {
-            $this->_routeParams = $params;
+            $this->routeParams = $params;
         }
     }
 
@@ -219,8 +219,8 @@ class UrlManager extends \yii\web\UrlManager
                 "Stack trace:\n" . App::backtrace(), __METHOD__);
         }
 
-        if ($this->_matchedElement !== null) {
-            return $this->_matchedElement;
+        if ($this->matchedElement !== null) {
+            return $this->matchedElement;
         }
 
         $request = Craft::$app->getRequest();
@@ -230,7 +230,7 @@ class UrlManager extends \yii\web\UrlManager
         }
 
         $this->_getMatchedElementRoute($request);
-        return $this->_matchedElement;
+        return $this->matchedElement;
     }
 
     /**
@@ -246,8 +246,8 @@ class UrlManager extends \yii\web\UrlManager
                 if (is_string($route)) {
                     $route = [$route, []];
                 }
-                $this->_matchedElement = $element;
-                $this->_matchedElementRoute = $route;
+                $this->matchedElement = $element;
+                $this->matchedElementRoute = $route;
                 return;
             }
 
@@ -255,8 +255,8 @@ class UrlManager extends \yii\web\UrlManager
             $element = false;
         }
 
-        $this->_matchedElement = $element;
-        $this->_matchedElementRoute = $element;
+        $this->matchedElement = $element;
+        $this->matchedElementRoute = $element;
     }
 
     /**
@@ -299,7 +299,7 @@ class UrlManager extends \yii\web\UrlManager
      *
      * @return array|null The rules, or null if it's a console request
      */
-    private function _getRules()
+    protected function _getRules()
     {
         $request = Craft::$app->getRequest();
 
@@ -343,7 +343,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return mixed
      */
-    private function _getRequestRoute(Request $request)
+    protected function _getRequestRoute(Request $request)
     {
         // Is there a token in the URL?
         if (($route = $this->_getTokenRoute($request)) !== false) {
@@ -375,10 +375,10 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return mixed
      */
-    private function _getMatchedElementRoute(Request $request)
+    protected function _getMatchedElementRoute(Request $request)
     {
-        if ($this->_matchedElementRoute !== null) {
-            return $this->_matchedElementRoute;
+        if ($this->matchedElementRoute !== null) {
+            return $this->matchedElementRoute;
         }
 
         if (
@@ -404,12 +404,12 @@ class UrlManager extends \yii\web\UrlManager
         if (YII_DEBUG) {
             Craft::debug([
                 'rule' => 'Element URI: ' . $path,
-                'match' => $this->_matchedElement instanceof ElementInterface,
+                'match' => $this->matchedElement instanceof ElementInterface,
                 'parent' => null,
             ], __METHOD__);
         }
 
-        return $this->_matchedElementRoute;
+        return $this->matchedElementRoute;
     }
 
     /**
@@ -418,7 +418,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return mixed
      */
-    private function _getMatchedUrlRoute(Request $request)
+    protected function _getMatchedUrlRoute(Request $request)
     {
         // Code adapted from \yii\web\UrlManager::parseRequest()
         /** @var $rule YiiUrlRule */
@@ -451,7 +451,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return mixed
      */
-    private function _getMatchedDiscoverableUrlRoute(Request $request)
+    protected function _getMatchedDiscoverableUrlRoute(Request $request)
     {
         $redirectUri = $request->getPathInfo() === '.well-known/change-password'
             ? Craft::$app->getConfig()->getGeneral()->getSetPasswordRequestPath(Craft::$app->getSites()->getCurrentSite()->handle)
@@ -484,7 +484,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return bool
      */
-    private function _isPublicTemplatePath(Request $request): bool
+    protected function _isPublicTemplatePath(Request $request): bool
     {
         if ($request->getIsConsoleRequest() || $request->getIsCpRequest()) {
             $trigger = '_';
@@ -512,7 +512,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return array|bool
      */
-    private function _getTemplateRoute(Request $request)
+    protected function _getTemplateRoute(Request $request)
     {
         if ($request->getIsSiteRequest() && Craft::$app->getConfig()->getGeneral()->headlessMode) {
             return false;
@@ -542,7 +542,7 @@ class UrlManager extends \yii\web\UrlManager
      * @param Request $request
      * @return array|false
      */
-    private function _getTokenRoute(Request $request)
+    protected function _getTokenRoute(Request $request)
     {
         if (!$this->checkToken) {
             return false;
